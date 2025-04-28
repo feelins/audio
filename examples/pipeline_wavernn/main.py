@@ -13,6 +13,7 @@ from losses import LongCrossEntropyLoss, MoLLoss
 from processing import NormalizeDB
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchaudio.models.wavernn import WaveRNN
 from utils import count_parameters, MetricLogger, save_checkpoint
 
@@ -198,7 +199,7 @@ def parse_args():
     return args
 
 
-def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch):
+def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch, writer):
 
     model.train()
 
@@ -241,6 +242,9 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch):
 
     avg_loss = sums["loss"] / len(data_loader)
 
+    # 记录训练损失到TensorBoard
+    writer.add_scalar('Loss/train', avg_loss, epoch)
+
     metric = MetricLogger("train_epoch")
     metric["epoch"] = epoch
     metric["loss"] = sums["loss"] / len(data_loader)
@@ -249,7 +253,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, device, epoch):
     metric()
 
 
-def validate(model, criterion, data_loader, device, epoch):
+def validate(model, criterion, data_loader, device, epoch, writer):
 
     with torch.no_grad():
 
@@ -271,6 +275,9 @@ def validate(model, criterion, data_loader, device, epoch):
 
         avg_loss = sums["loss"] / len(data_loader)
 
+        # 记录推理损失到TensorBoard
+        writer.add_scalar('Loss/validation', avg_loss, epoch)
+
         metric = MetricLogger("validation")
         metric["epoch"] = epoch
         metric["loss"] = avg_loss
@@ -281,6 +288,9 @@ def validate(model, criterion, data_loader, device, epoch):
 
 
 def main(args):
+
+    # 初始化TensorBoard
+    writer = SummaryWriter(log_dir='logs/experiment_name')
 
     devices = ["cuda" if torch.cuda.is_available() else "cpu"]
 
@@ -400,11 +410,12 @@ def main(args):
             train_loader,
             devices[0],
             epoch,
+            writer,
         )
 
         if not (epoch + 1) % args.print_freq or epoch == args.epochs - 1:
 
-            sum_loss = validate(model, criterion, val_loader, devices[0], epoch)
+            sum_loss = validate(model, criterion, val_loader, devices[0], epoch, writer)
 
             is_best = sum_loss < best_loss
             best_loss = min(sum_loss, best_loss)
@@ -419,6 +430,18 @@ def main(args):
                 args.checkpoint,
             )
 
+        if (epoch + 1) % 1000 == 0:
+            checkpoint_path = f"checkpoint_epoch_{epoch + 1}.pth"
+            torch.save(
+                {
+                    'epoch': epoch + 1,
+                    'state_dict': model.state_dict(),
+                    'best_loss': best_loss,
+                    'optimizer': optimizer.state_dict(),
+                }, checkpoint_path
+            )
+            logging.info(f"Checkpoint saved to {checkpoint_path}")
+    writer.close()
     logging.info(f"End time: {datetime.now()}")
 
 
