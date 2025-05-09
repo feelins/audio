@@ -234,7 +234,7 @@ python inference.py --checkpoint-path ${model_path} \
     --text-preprocessor english_characters \
     --output-path "./outputs.wav"
 ```
-
+python inference.py --checkpoint-path "E:\003_ProgramLanguage\audio\examples\pipeline_tacotron2\best_ckpt.pth" --vocoder griffin_lim --n-fft 1024 --mel-fmin 0 --mel-fmax 8000 --input-text "[mm ai212]*[hh iang212]*[ui53][kk ug21]*[kg aa33][kg ii11]" --text-preprocessor english_characters --output-path "E:\003_ProgramLanguage\audio\examples\pipeline_tacotron2\outputs_griffin_lim_chaoshan.wav"
 
 #### Nvidia's Waveglow as the Vocoder
 
